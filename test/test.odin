@@ -71,29 +71,14 @@ test_all :: proc(t: ^testing.T) {
 test_l_collapse :: proc(t: ^testing.T) {
     log.info("--- Begin L Collapse Test ---")
 
-    shape := _make_shape_l()
-    log.info("Original shape: ", shape)
-    offset := libtess2.offset_polygon(shape[:], -10.0)
-    //offset: [][][2]f64 = {libtess2.make_raw_offset_curve(shape[:], {-10.0})}
+    // shape := _make_shape_l()
+    // log.info("Original shape: ", shape)
+    // offset := libtess2.offset_polygon(shape[:], -10.0)
+    // log.info("Offset shape: ", offset)
 
-    // cleaned := libtess2.tesselate_contours({shape[:]}, .Positive, context.temp_allocator)
-    // if len(cleaned) == 0 {
-    //     libtess2.free_result(cleaned)
-    // }
+    // export_svg(shape[:], offset, "Test L Collapse")
 
-    // raw := make([][]([2]f64), len(cleaned), context.temp_allocator)
-    // for i in 0..<len(cleaned) {
-    //     raw[i] = libtess2._make_raw_offset_curve(cleaned[i], {-20.0}, context.temp_allocator)
-    // }
-
-    // log.info("Raw Offset Curve: ", raw)
-
-    // offset := libtess2.boolean(raw, .Negative)
-    log.info("Offset shape: ", offset)
-
-    export_svg(shape[:], offset, "Test L Collapse")
-
-    libtess2.delete_contours(offset)
+    // libtess2.delete_contours(offset)
 
     log.info("--- End L Collapse Test ---")
 }

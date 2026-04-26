@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="400" style="background:#1a1a2e">
+  <polygon points="30.00,270.00 270.00,110.00 270.00,270.00 30.00,110.00 " fill="#4cc9f0" fill-opacity="0.30" stroke="#90e0ef" stroke-width="2.0" stroke-linejoin="round"/>
+  <circle cx="30.00" cy="270.00" r="3" fill="#90e0ef"/>
+  <text x="30.00" y="263.00" font-family="monospace" font-size="6" fill="#90e0ef" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(-60,-40)</text>
+  <circle cx="270.00" cy="110.00" r="3" fill="#90e0ef"/>
+  <text x="270.00" y="103.00" font-family="monospace" font-size="6" fill="#90e0ef" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(60,40)</text>
+  <circle cx="270.00" cy="270.00" r="3" fill="#90e0ef"/>
+  <text x="270.00" y="263.00" font-family="monospace" font-size="6" fill="#90e0ef" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(60,-40)</text>
+  <circle cx="30.00" cy="110.00" r="3" fill="#90e0ef"/>
+  <text x="30.00" y="103.00" font-family="monospace" font-size="6" fill="#90e0ef" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(-60,40)</text>
+  <text x="10.00" y="16.00" font-family="monospace" font-size="13" fill="#e0e0e0">basis</text>
+  <polygon points="350.00,270.00 590.00,110.00 590.00,270.00 350.00,110.00 " fill="#4cc9f0" fill-opacity="0.06" stroke="#4cc9f0" stroke-width="1.0" stroke-dasharray="5 3" stroke-linejoin="round"/>
+  <polygon points="455.58,190.00 374.00,135.61 374.00,244.39 " fill="#f72585" fill-opacity="0.40" stroke="#f72585" stroke-width="2.0" stroke-linejoin="round"/>
+  <circle cx="455.58" cy="190.00" r="3" fill="#f72585"/>
+  <text x="455.58" y="183.00" font-family="monospace" font-size="6" fill="#f72585" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(-7,0)</text>
+  <circle cx="374.00" cy="135.61" r="3" fill="#f72585"/>
+  <text x="374.00" y="128.61" font-family="monospace" font-size="6" fill="#f72585" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(-48,27)</text>
+  <circle cx="374.00" cy="244.39" r="3" fill="#f72585"/>
+  <text x="374.00" y="237.39" font-family="monospace" font-size="6" fill="#f72585" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(-48,-27)</text>
+  <text x="330.00" y="16.00" font-family="monospace" font-size="13" fill="#e0e0e0">result (1 contour)</text>
+  <rect x="10.00" y="312.00" width="12" height="12" fill="#4cc9f0" rx="2"/>
+  <text x="28.00" y="322.00" font-family="monospace" font-size="11" fill="#cccccc">basis</text>
+  <rect x="10.00" y="330.00" width="12" height="12" fill="#f72585" rx="2"/>
+  <text x="28.00" y="340.00" font-family="monospace" font-size="11" fill="#cccccc">contour 0</text>
+  <text x="330.00" y="322.00" font-family="monospace" font-size="11" fill="#666666">Bowtie miter per-edge</text>
+</svg>

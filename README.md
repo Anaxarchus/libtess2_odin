@@ -35,21 +35,57 @@ defer tess.delete_contours(isect)
 xor    := tess.xor_polygons({polygon_a, polygon_b})
 defer tess.delete_contours(xor)
 
-// Uniform inward offset
-inset := tess.offset_polygon(polygon, -10.0)
-defer tess.delete_contours(inset)
+// Uniform offset — join type baked into the call name
+inset_round := tess.offset_polygon_round(polygon, {-10.0}, arc_resolution = 0.5)
+defer tess.delete_contours(inset_round)
 
-// Per-edge offset — one delta per edge, last value is the fallback
+inset_miter := tess.offset_polygon_miter(polygon, {-10.0}, miter_limit = 2.0)
+defer tess.delete_contours(inset_miter)
+
+inset_bevel := tess.offset_polygon_bevel(polygon, {-10.0})
+defer tess.delete_contours(inset_bevel)
+
+// Per-edge offset — one delta per edge, last value is reused for remaining edges
 deltas := []f64{-5, -20, -5, -5}
-inset2 := tess.offset_polygon_edges(polygon, deltas)
+inset2 := tess.offset_polygon_round(polygon, deltas, arc_resolution = 0.5)
 defer tess.delete_contours(inset2)
 
 // Results are [][][2]f64 — a slice of contours, each a slice of vertices
-for contour in inset {
+for contour in inset_round {
     for vertex in contour {
         fmt.println(vertex)
     }
 }
+```
+
+### Join Types
+
+| Function | Description | Extra parameter |
+|---|---|---|
+| `offset_polygon_round` | Arc join, chord-deviation controlled | `arc_resolution: f64` |
+| `offset_polygon_miter` | Sharp point join, with spike limit | `miter_limit: f64` |
+| `offset_polygon_bevel` | Straight cut join | — |
+
+All three accept either a single uniform delta `{-10.0}` or a per-edge delta slice. Negative delta shrinks, positive expands.
+
+**arc_resolution** is a chord deviation tolerance in the same units as your geometry. A value of `0.5` works well for geometry in the 50–150 unit range. Smaller values produce smoother arcs at the cost of more vertices.
+
+**miter_limit** caps how far a miter spike can extend from the original vertex, expressed as a multiple of the offset delta. When exceeded, the join falls back to bevel. `2.0` is conservative (Clipper default), `4.0` is more permissive (SVG default).
+
+### Knobby API
+For full control, use `offset_polygon_edges` directly. This is useful when you need per-edge deltas with heterogeneous signs and want to explicitly declare whether the contour is being inset or outset.
+
+```odin
+// All knobs exposed — most callers should prefer the named wrappers above
+result := tess.offset_polygon_edges(
+    polygon,
+    deltas,
+    join_type      = .Round,
+    arc_resolution = 0.5,
+    miter_limit    = 2.0,
+    allocator      = context.allocator,
+)
+defer tess.delete_contours(result)
 ```
 
 ### Stack-based API
@@ -61,19 +97,16 @@ import tess "path/to/libtess2"
 polygon_a := [][2]f64{ {-60,-60},{60,-60},{60,60},{-60,60} }
 polygon_b := [][2]f64{ {-30,-30},{90,-30},{90,90},{-30,90} }
 
-// begin creates a typed tessellator — vertex size is a compile-time constant
 ctx, ok := tess.begin(2)  // 2 = [2]f64 vertices
 if !ok do return
 defer tess.end(ctx)
 
-// push as many contours as needed
 tess.add(ctx, polygon_a)
 tess.add(ctx, polygon_b)
 
-// tessellate with a winding rule to get boundary contours
 // .Positive  → union
 // .Abs_Geq_Two → intersection
-// .Negative  → (with appropriate input orientation)
+// .Odd → XOR
 contours := tess.tesselate_boundary_contours(&ctx, .Positive)
 defer tess.delete_contours(contours)
 
@@ -109,10 +142,7 @@ for quad in quads {
 ```
 
 ### Stack-based API — 3D tessellation
-For geometry that lives on an arbitrary plane in 3D, pass `vertex_size = 3` and set a plane normal. libtess2 will project all contours onto that plane for tessellation.
-
 ```odin
-// tessellate a polygon on the XZ plane (normal pointing up in Y)
 ctx, ok := tess.begin(3)
 if !ok do return
 defer tess.end(ctx)
@@ -128,7 +158,6 @@ defer tess.delete_contours(contours)
 ```
 
 ### Winding rules
-Winding rules control which regions are considered interior. They can be used to implement all boolean operations:
 
 | Rule | Effect |
 |---|---|
@@ -139,51 +168,79 @@ Winding rules control which regions are considered interior. They can be used to
 | `.Abs_Geq_Two` | Intersection — regions covered by 2 or more contours |
 
 ## Polygon Operations
-The following convenience operations are provided in `polygon.odin`:
 
 | Function | Description |
 |---|---|
-| `offset_polygon` | Offsets all edges of a polygon by a uniform delta |
-| `offset_polygon_edges` | Offsets each edge of a polygon by an individual delta |
+| `offset_polygon_round` | Offset with arc joins, chord-deviation controlled |
+| `offset_polygon_miter` | Offset with miter joins, spike-limited |
+| `offset_polygon_bevel` | Offset with straight-cut joins |
+| `offset_polygon_edges` | Full knobby API — all parameters exposed |
 | `union_polygons` | Boolean union |
 | `difference_polygons` | Boolean difference |
 | `intersect_polygons` | Boolean intersection |
 | `xor_polygons` | Boolean symmetric difference |
 
+---
+
 ## Examples
-These include a few pathologies, but mostly normal
 
-### Offset: Concave Shapes
-| Offset in -6 | Per-edge offset | Offset out +6 |
+### L shape — uniform offset
+| Round in | Miter in | Bevel in |
 |---|---|---|
-| ![](images/L_offset_in_6.svg) | ![](images/L_per_edge_offset.svg) | ![](images/L_offset_out_6.svg) |
+| ![](images/L_round_in.svg) | ![](images/L_miter_in.svg) | ![](images/L_bevel_in.svg) |
 
-### Offset: Collapse
-| L arm collapse -30 | U channel collapse |
-|---|---|
-| ![](images/L_arm_collapse_30.svg) | ![](images/U_channel_collapse_25.svg) |
-
-### Offset: Split & Partial Collapse
-| H split → 2 shapes | L arm partial collapse |
-|---|---|
-| ![](images/H_split_6_2_shapes_.svg) | ![](images/L_arm_partial_collapse_10.svg) |
-
-### Offset: Thin geometry
-| Thin rect near-collapse | Thin rect gone | U-shape offset |
+| Round out | Miter out | Bevel out |
 |---|---|---|
-| ![](images/Thin_rect_4_near_.svg) | ![](images/Thin_rect_6_gone_.svg) | ![](images/U_shape_offset_8.svg) |
+| ![](images/L_round_out.svg) | ![](images/L_miter_out.svg) | ![](images/L_bevel_out.svg) |
 
-### Offset: Complex shapes
-| Star -8 | Cross -8 |
-|---|---|
-| ![](images/Star_offset_8.svg) | ![](images/Cross_offset_8.svg) |
+### L shape — collapse & per-edge
+| Round collapse | Miter collapse | Bevel collapse |
+|---|---|---|
+| ![](images/L_round_collapse.svg) | ![](images/L_miter_collapse.svg) | ![](images/L_bevel_collapse.svg) |
+
+| Round per-edge | Miter per-edge | Bevel per-edge |
+|---|---|---|
+| ![](images/L_round_per_edge.svg) | ![](images/L_miter_per_edge.svg) | ![](images/L_bevel_per_edge.svg) |
+
+---
+
+### H shape — uniform offset
+| Round in | Miter in | Bevel in |
+|---|---|---|
+| ![](images/H_round_in.svg) | ![](images/H_miter_in.svg) | ![](images/H_bevel_in.svg) |
+
+| Round out | Miter out | Bevel out |
+|---|---|---|
+| ![](images/H_round_out.svg) | ![](images/H_miter_out.svg) | ![](images/H_bevel_out.svg) |
+
+### H shape — collapse & per-edge
+| Round collapse | Miter collapse | Bevel collapse |
+|---|---|---|
+| ![](images/H_round_collapse.svg) | ![](images/H_miter_collapse.svg) | ![](images/H_bevel_collapse.svg) |
+
+| Round per-edge | Miter per-edge | Bevel per-edge |
+|---|---|---|
+| ![](images/H_round_per_edge.svg) | ![](images/H_miter_per_edge.svg) | ![](images/H_bevel_per_edge.svg) |
+
+---
+
+### Bowtie — offset & per-edge
+| Round out | Miter out | Bevel out |
+|---|---|---|
+| ![](images/Bowtie_round_out.svg) | ![](images/Bowtie_miter_out.svg) | ![](images/Bowtie_bevel_out.svg) |
+
+| Round per-edge | Miter per-edge | Bevel per-edge |
+|---|---|---|
+| ![](images/Bowtie_round_per_edge.svg) | ![](images/Bowtie_miter_per_edge.svg) | ![](images/Bowtie_bevel_per_edge.svg) |
+
+---
 
 ## Notes & Limitations
-- Offsets are currently mitered only with no miter limit
+- Per-edge deltas with heterogeneous signs (some edges expanding, some shrinking) is undefined
+- Open polygon offsetting is not yet supported
 
 ## Roadmap
-- Selectable join types: round, bevel, miter
-- Constraints on miters and arc resolution
+- Explicit inward/outward treatment for heterogeneous signed edge deltas
 - Open polygon offsetting
 - Open polygon booleans
 - Boolean trees

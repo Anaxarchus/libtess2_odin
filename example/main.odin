@@ -1,10 +1,8 @@
 package main
 
-import "core:fmt"
 import "core:math"
 import rl "vendor:raylib"
 import ".."
-//import "../test"
 
 to_screen :: proc(p: [2]f64, origin: [2]f32, scale: f32) -> rl.Vector2 {
     return {origin.x + f32(p.x) * scale, origin.y + f32(p.y) * scale}
@@ -189,97 +187,107 @@ cell_bounds :: proc(slot, cols, rows: int, w, h: f32) -> rl.Rectangle {
 }
 
 main :: proc() {
-    W, H :: 1200, 800
-    rl.InitWindow(W, H, "libtess2 ops test")
+    W, H :: 1600, 1000
+    rl.InitWindow(W, H, "libtess2 join type test")
     defer rl.CloseWindow()
     rl.SetTargetFPS(60)
 
     // ── shapes ───────────────────────────────────────────────
-    square    := [][2]f64{{-60,-60},{60,-60},{60,60},{-60,60}}
-    circle    := make_circle(30, 30, 50, 32)
-    l_shape   := [][2]f64{{-60,-60},{60,-60},{60,0},{0,0},{0,60},{-60,60}}
-    thin_l    := [][2]f64{{-60,-60},{60,-60},{60,-40},{-20,-40},{-20,60},{-60,60}}
-    star      := make_star(0, 0, 60, 25, 5)
-    cross     := make_cross(0, 0, 120, 30)
-    u_shape   := make_u_shape(0, 0, 120, 20)
-    thin_rect := make_thin_rect(0, 0, 120, 10)
-    square_a  := [][2]f64{{-70,-40},{20,-40},{20,40},{-70,40}}
-    square_b  := [][2]f64{{-20,-40},{70,-40},{70,40},{-20,40}}
-    per_edge  := []f64{-8, -30, -8, -8, -20, -8}
-    h_shape   := make_h_shape(0, 0)
-
-    defer delete(circle)
-    defer delete(star)
-
-    // ── cells ────────────────────────────────────────────────
-    cells := [?]Cell{
-        {libtess2.union_polygons({square, circle}),            square,    circle, 1.8, {0,200,100,60},   rl.GREEN,   "Union"},
-        {libtess2.intersect_polygons({square, circle}),        square,    circle, 1.8, {200,0,255,60},   rl.PURPLE,  "Intersection"},
-        {libtess2.difference_polygons({square, circle}),       square,    circle, 1.8, {255,140,0,60},   rl.ORANGE,  "Difference (A-B)"},
-        {libtess2.xor_polygons({square, circle}),              square,    circle, 1.8, {0,180,255,60},   rl.SKYBLUE, "XOR"},
-        {libtess2.offset_polygon(l_shape,    -6.0),            l_shape,   nil,   1.8, {255,80,80,60},   rl.RED,     "L offset in -6"},
-        {libtess2.offset_polygon_edges(l_shape, per_edge),     l_shape,   nil,   1.8, {255,220,0,60},   rl.YELLOW,  "L per-edge offset"},
-        {libtess2.offset_polygon(l_shape,     6.0),            l_shape,   nil,   1.8, {80,255,80,60},   rl.GREEN,   "L offset out +6"},
-        {libtess2.offset_polygon(thin_l,    -30.0),            thin_l,    nil,   1.8, {255,80,80,60},   rl.RED,     "L arm collapse -30"},
-        {libtess2.offset_polygon(thin_l,    -10.0),            thin_l,    nil,   1.8, {255,80,80,60},   rl.RED,     "L arm partial collapse -10"},
-        {libtess2.offset_polygon(star,       -8.0),            star,      nil,   1.8, {200,100,255,60}, rl.PURPLE,  "Star offset -8"},
-        {libtess2.offset_polygon(cross[:],      -8.0),            cross[:],     nil,   1.5, {255,140,0,60},   rl.ORANGE,  "Cross offset -8"},
-        {libtess2.offset_polygon(u_shape[:],    -8.0),            u_shape[:],   nil,   1.5, {0,180,255,60},   rl.SKYBLUE, "U-shape offset -8"},
-        {libtess2.offset_polygon(u_shape[:],   -25.0),            u_shape[:],   nil,   1.5, {255,80,80,60},   rl.RED,     "U channel collapse -25"},
-        {libtess2.offset_polygon(thin_rect[:],  -4.0),            thin_rect[:], nil,   3.0, {0,200,100,60},   rl.GREEN,   "Thin rect -4 (near)"},
-        {libtess2.offset_polygon(thin_rect[:],  -6.0),            thin_rect[:], nil,   3.0, {255,80,80,60},   rl.RED,     "Thin rect -6 (gone)"},
-        {libtess2.offset_polygon(h_shape[:], -6.0), h_shape[:], nil, 1.5, {255,80,80,60}, rl.RED, "H split -6 (2 shapes)"},
-        {libtess2.union_polygons({square_a, square_b}),        square_a,  square_b, 1.8, {0,200,100,60}, rl.GREEN,  "Overlap union"},
-        {libtess2.intersect_polygons({square_a, square_b}),    square_a,  square_b, 1.8, {200,0,255,60}, rl.PURPLE, "Overlap intersect"},
-        {libtess2.difference_polygons({square_a, square_b}),    square_a,  square_b, 1.8, {200,0,255,60}, rl.BLUE, "Overlap difference"},
-        {libtess2.xor_polygons({square_a, square_b}),    square_a,  square_b, 1.8, {200,0,255,60}, rl.BLUE, "Overlap XOR"},
+    // L shape with legs of different thickness
+    l_shape := [][2]f64{
+        {-60, -60}, {60, -60}, {60, -40},
+        {-20, -40}, {-20,  60}, {-60, 60},
     }
-    defer for c in cells { free_result(c.result) }
 
-    // - debug
-    // test.export_svg(l_shape, cells[4].result, string(cells[4].label))
-    // test.export_svg(l_shape, cells[5].result, string(cells[5].label))
-    // test.export_svg(l_shape, cells[6].result, string(cells[6].label))
-    // test.export_svg(thin_l, cells[7].result, string(cells[7].label))
-    // test.export_svg(thin_l, cells[8].result, string(cells[8].label))
-    // test.export_svg(star, cells[9].result, string(cells[9].label))
-    // test.export_svg(cross[:], cells[10].result, string(cells[10].label))
-    // test.export_svg(u_shape[:], cells[11].result, string(cells[11].label))
-    // test.export_svg(u_shape[:], cells[12].result, string(cells[12].label))
-    // test.export_svg(thin_rect[:], cells[13].result, string(cells[13].label))
-    // test.export_svg(thin_rect[:], cells[14].result, string(cells[14].label))
-    // test.export_svg(h_shape[:], cells[15].result, string(cells[15].label))
+    // H shape with thin crossbar
+    h_shape := [][2]f64{
+        {-40, -60}, {-20, -60},
+        {-20, -6},  {20,  -6},
+        {20,  -60}, {40,  -60},
+        {40,   60}, {20,   60},
+        {20,    6}, {-20,   6},
+        {-20,  60}, {-40,  60},
+    }
 
-    // ── layout ───────────────────────────────────────────────
-    COLS  :: 2
-    ROWS  :: 2
-    PER_PAGE :: COLS * ROWS
+    // bowtie
+    bowtie := [][2]f64{
+        {-60, -40}, {60, 40},
+        {60, -40},  {-60, 40},
+    }
 
-    col := [COLS]f32{300, 900}
-    row := [ROWS]f32{320, 620}
+    Cell :: struct {
+        result: [][][2]f64,
+        ghost:  [][2]f64,
+        fill:   rl.Color,
+        edge:   rl.Color,
+        label:  cstring,
+    }
 
-    page     := 0
-    n_pages  := (len(cells) + PER_PAGE - 1) / PER_PAGE
+    in_d       :: f64(-4)
+    out_d      :: f64(4)
+    collapse_d :: f64(-10)
+
+    l_per_edge      := []f64{-4, -15, -4, -4, -12, -4}
+    h_per_edge      := []f64{-4, -4, -10, -4, -4, -4, -4, -4, -10, -4, -4, -4}
+    bowtie_per_edge := []f64{-4, -12, -4, -12}
+
+    cells := [?]Cell{
+        // ── L shape ──────────────────────────────────────────
+        {libtess2.offset_polygon_round( l_shape, {in_d},       0.5), l_shape, {255,80,80,60},   rl.RED,    "L round in"},
+        {libtess2.offset_polygon_miter( l_shape, {in_d},       2.0), l_shape, {255,80,80,60},   rl.RED,    "L miter in"},
+        {libtess2.offset_polygon_bevel( l_shape, {in_d}           ), l_shape, {255,80,80,60},   rl.RED,    "L bevel in"},
+        {libtess2.offset_polygon_round( l_shape, {out_d},      0.5), l_shape, {80,255,80,60},   rl.GREEN,  "L round out"},
+        {libtess2.offset_polygon_miter( l_shape, {out_d},      2.0), l_shape, {80,255,80,60},   rl.GREEN,  "L miter out"},
+        {libtess2.offset_polygon_bevel( l_shape, {out_d}          ), l_shape, {80,255,80,60},   rl.GREEN,  "L bevel out"},
+        {libtess2.offset_polygon_round( l_shape, l_per_edge,   0.5), l_shape, {0,180,255,60},   rl.SKYBLUE,"L round per-edge"},
+        {libtess2.offset_polygon_miter( l_shape, l_per_edge,   2.0), l_shape, {0,180,255,60},   rl.SKYBLUE,"L miter per-edge"},
+        {libtess2.offset_polygon_bevel( l_shape, l_per_edge       ), l_shape, {0,180,255,60},   rl.SKYBLUE,"L bevel per-edge"},
+        {libtess2.offset_polygon_round( l_shape, {collapse_d}, 0.5), l_shape, {255,220,0,60},   rl.YELLOW, "L round collapse"},
+        {libtess2.offset_polygon_miter( l_shape, {collapse_d}, 2.0), l_shape, {255,220,0,60},   rl.YELLOW, "L miter collapse"},
+        {libtess2.offset_polygon_bevel( l_shape, {collapse_d}     ), l_shape, {255,220,0,60},   rl.YELLOW, "L bevel collapse"},
+
+        // ── H shape ──────────────────────────────────────────
+        {libtess2.offset_polygon_round( h_shape, {in_d},       0.5), h_shape, {255,80,80,60},   rl.RED,    "H round in"},
+        {libtess2.offset_polygon_miter( h_shape, {in_d},       2.0), h_shape, {255,80,80,60},   rl.RED,    "H miter in"},
+        {libtess2.offset_polygon_bevel( h_shape, {in_d}           ), h_shape, {255,80,80,60},   rl.RED,    "H bevel in"},
+        {libtess2.offset_polygon_round( h_shape, {out_d},      0.5), h_shape, {80,255,80,60},   rl.GREEN,  "H round out"},
+        {libtess2.offset_polygon_miter( h_shape, {out_d},      2.0), h_shape, {80,255,80,60},   rl.GREEN,  "H miter out"},
+        {libtess2.offset_polygon_bevel( h_shape, {out_d}          ), h_shape, {80,255,80,60},   rl.GREEN,  "H bevel out"},
+        {libtess2.offset_polygon_round( h_shape, h_per_edge,   0.5), h_shape, {0,180,255,60},   rl.SKYBLUE,"H round per-edge"},
+        {libtess2.offset_polygon_miter( h_shape, h_per_edge,   2.0), h_shape, {0,180,255,60},   rl.SKYBLUE,"H miter per-edge"},
+        {libtess2.offset_polygon_bevel( h_shape, h_per_edge       ), h_shape, {0,180,255,60},   rl.SKYBLUE,"H bevel per-edge"},
+        {libtess2.offset_polygon_round( h_shape, {collapse_d * 0.75}, 0.5), h_shape, {255,220,0,60},   rl.YELLOW, "H round collapse"},
+        {libtess2.offset_polygon_miter( h_shape, {collapse_d * 0.75}, 2.0), h_shape, {255,220,0,60},   rl.YELLOW, "H miter collapse"},
+        {libtess2.offset_polygon_bevel( h_shape, {collapse_d * 0.75}     ), h_shape, {255,220,0,60},   rl.YELLOW, "H bevel collapse"},
+
+        // ── bowtie ───────────────────────────────────────────
+        {libtess2.offset_polygon_bevel( bowtie, {in_d}            ), bowtie, {255,80,80,60},    rl.RED,    "Bowtie bevel in"},
+        {libtess2.offset_polygon_round( bowtie, {out_d},       0.5), bowtie, {80,255,80,60},    rl.GREEN,  "Bowtie round out"},
+        {libtess2.offset_polygon_miter( bowtie, {out_d},       2.0), bowtie, {80,255,80,60},    rl.GREEN,  "Bowtie miter out"},
+        {libtess2.offset_polygon_bevel( bowtie, {out_d}           ), bowtie, {80,255,80,60},    rl.GREEN,  "Bowtie bevel out"},
+        {libtess2.offset_polygon_round( bowtie, bowtie_per_edge,0.5), bowtie, {0,180,255,60},   rl.SKYBLUE,"Bowtie round per-edge"},
+        {libtess2.offset_polygon_miter( bowtie, bowtie_per_edge,2.0), bowtie, {0,180,255,60},   rl.SKYBLUE,"Bowtie miter per-edge"},
+        {libtess2.offset_polygon_bevel( bowtie, bowtie_per_edge    ), bowtie, {0,180,255,60},   rl.SKYBLUE,"Bowtie bevel per-edge"},
+    }
+    defer for c in cells { 
+        for r in c.result do delete(r)
+        delete(c.result)
+    }
+
+    page    := 0
+    n_pages := len(cells)
 
     for !rl.WindowShouldClose() {
-        // input
         if rl.IsKeyPressed(.RIGHT) do page = (page + 1) % n_pages
         if rl.IsKeyPressed(.LEFT)  do page = (page - 1 + n_pages) % n_pages
 
         rl.BeginDrawing()
         rl.ClearBackground({20, 20, 25, 255})
 
-        // draw current page
-        base := page * PER_PAGE
-        for slot in 0..<PER_PAGE {
-            ci := base + slot
-            if ci >= len(cells) do break
-            c      := cells[ci]
-            bounds := cell_bounds(slot, COLS, ROWS, W, H)
-            draw_cell(c.result, c.ghost, c.ghost2, bounds, c.scale, c.fill, c.edge, c.label)
-        }
+        c      := cells[page]
+        bounds := rl.Rectangle{MARGIN, MARGIN, W - MARGIN * 2, H - MARGIN * 2}
+        draw_cell(c.result, c.ghost, nil, bounds, 2.0, c.fill, c.edge, c.label)
 
-        // page indicator
         page_text := rl.TextFormat("%d / %d", page + 1, n_pages)
         rl.DrawText(page_text, W/2 - 30, H - 30, 20, {255,255,255,180})
         rl.DrawText("< >  arrow keys to cycle", W/2 - 100, H - 55, 16, {255,255,255,80})

@@ -49,11 +49,32 @@ _is_fully_inverted :: proc(polygon: [][2]f64, raw: [][2]f64) -> bool {
     return math.sign(_signed_area(polygon)) != math.sign(_signed_area(raw))
 }
 
-make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][2]f64 {
+@(private)
+_arc_sample_count :: #force_inline proc(radius, total_angle, chord_deviation: f64) -> int {
+    if radius < 1e-10 do return 0
+    half_step := math.acos(clamp(1.0 - chord_deviation / radius, -1.0, 1.0))
+    max_step  := 2.0 * half_step
+    return max(int(math.ceil(math.abs(total_angle) / max_step)), 1)
+}
+
+make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_Type, arc_resolution, miter_limit: f64, allocator := context.allocator) -> [][2]f64 {
     C  := len(polygon)
     dC := len(deltas) - 1
+    
+    // we're going to use a pessimistic strategy for allocation, and naively allocate for worst case.
+    buf: [][2]f64
+    switch join_type {
+    case .Miter, .Bevel:
+        buf = make([][2]f64, C * 3, allocator)
+    case .Round:
+        // pessimistic: assume every vertex is a half-circle at the largest delta
+        max_delta := deltas[0]
+        for d in deltas do max_delta = max(max_delta, math.abs(d))
+        max_arc_segs := _arc_sample_count(max_delta, math.PI, arc_resolution)
+        buf = make([][2]f64, C * (max_arc_segs + 2), allocator)
+    }
+
     // up to 3 points per vertex: end of incoming edge, original vertex, start of outgoing edge
-    buf   := make([][2]f64, C * 3, allocator)
     count := 0
 
     for i in 0..<C {
@@ -87,15 +108,84 @@ make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := con
             buf[count] = polygon[i]; count += 1
             buf[count] = p_start;    count += 1
         } else {
-            // miter: intersect the two offset edge lines
-            hit, x := _line_intersect(
-                polygon[h] - n_in  * delta_in, p_end,
-                p_start,                        polygon[j] - n_out * delta_out,
-            )
-            if hit {
-                buf[count] = x; count += 1
-            } else {
-                buf[count] = p_end;   count += 1
+            switch join_type {
+            case .Miter:
+                // miter: intersect the two offset edge lines
+                hit, x := _line_intersect(
+                    polygon[h] - n_in  * delta_in, p_end,
+                    p_start,                        polygon[j] - n_out * delta_out,
+                )
+                if hit {
+                    buf[count] = x; count += 1
+                } else {
+                    buf[count] = p_end;   count += 1
+                    buf[count] = p_start; count += 1
+                }
+            case .Bevel:
+
+                dt: f64
+                if abs(delta_in) < abs(delta_out) {
+                    dt = delta_in
+                } else {
+                    dt = delta_out
+                }
+
+                angle_in  := math.atan2(n_in.y,  n_in.x)
+                angle_out := math.atan2(n_out.y, n_out.x)
+                origin: [2]f64 = polygon[i]
+                radius: f64 = dt
+
+                if abs(delta_in - delta_out) > 1e-9 {
+                    edge_in  := linalg.normalize0(polygon[i] - polygon[h])
+                    edge_out := linalg.normalize0(polygon[j] - polygon[i])
+                    hit, x   := _line_intersect(p_end, p_end + edge_in, p_start, p_start + edge_out)
+                    if hit do origin = x + n_in * radius + n_out * radius
+                    p_end   = origin - [2]f64{math.cos(angle_in),  math.sin(angle_in)}  * radius
+                    p_start = origin - [2]f64{math.cos(angle_out), math.sin(angle_out)} * radius
+                }
+
+                // --- commit points ---
+                buf[count] = p_end; count += 1
+                buf[count] = p_start; count += 1
+
+            case .Round:
+
+                dt: f64
+                if abs(delta_in) < abs(delta_out) {
+                    dt = delta_in
+                } else {
+                    dt = delta_out
+                }
+
+                angle_in  := math.atan2(n_in.y,  n_in.x)
+                angle_out := math.atan2(n_out.y, n_out.x)
+                origin: [2]f64 = polygon[i]
+                radius: f64 = dt
+
+                if abs(delta_in - delta_out) > 1e-9 {
+                    edge_in  := linalg.normalize0(polygon[i] - polygon[h])
+                    edge_out := linalg.normalize0(polygon[j] - polygon[i])
+                    hit, x   := _line_intersect(p_end, p_end + edge_in, p_start, p_start + edge_out)
+                    if hit do origin = x + n_in * radius + n_out * radius
+                    p_end   = origin - [2]f64{math.cos(angle_in),  math.sin(angle_in)}  * radius
+                    p_start = origin - [2]f64{math.cos(angle_out), math.sin(angle_out)} * radius
+                }
+
+                diff      := math.mod(angle_out - angle_in + math.TAU, math.TAU)
+                if diff > math.PI do diff -= math.TAU
+
+                steps := _arc_sample_count(abs(radius), math.abs(diff), arc_resolution)
+
+                // --- commit points ---
+
+                buf[count] = p_end; count += 1
+
+                for k in 1..<steps {
+                    a := angle_in + f64(k) * diff / f64(steps)
+                    buf[count] = origin - [2]f64{math.cos(a), math.sin(a)} * radius
+                    count += 1
+                }
+
                 buf[count] = p_start; count += 1
             }
         }
@@ -106,19 +196,7 @@ make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := con
     return buf[:count]
 }
 
-
-// offset_polygon offsets all edges of a polygon by a uniform delta.
-// Negative delta shrinks, positive delta expands.
-// Returns cleaned contours via winding number classification.
-offset_polygon :: #force_inline proc(polygon: [][2]f64, delta: f64, allocator := context.allocator) -> [][][2]f64 {
-    return offset_polygon_edges(polygon, {delta}, allocator)
-}
-
-// offset_polygon_edges offsets each edge of a polygon by its own delta.
-// If len(deltas) < len(polygon), the last delta is reused for remaining edges.
-// Negative delta shrinks, positive delta expands.
-// Returns cleaned contours via winding number classification.
-offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][][2]f64 {
+offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_Type, arc_resolution: f64, miter_limit: f64, allocator := context.allocator) -> [][][2]f64 {
     if len(polygon) < 3 do return {}
 
     // step 1: clean the input polygon
@@ -132,7 +210,7 @@ offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, allocator := cont
     raw := make([][]([2]f64), len(cleaned))
     defer delete_contours(raw)
     for i in 0..<len(cleaned) {
-        raw[i] = make_raw_offset_curve(cleaned[i], deltas)
+        raw[i] = make_raw_offset_curve(cleaned[i], deltas, join_type, arc_resolution, miter_limit, allocator)
     }
 
     ctx, okay = begin(2, false)
@@ -145,7 +223,17 @@ offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, allocator := cont
     return result
 }
 
-offset :: proc {offset_polygon, offset_polygon_edges}
+offset_polygon_miter :: #force_inline proc(polygon: [][2]f64, deltas: []f64, miter_limit: f64, allocator := context.allocator) -> [][][2]f64 {
+    return offset_polygon_edges(polygon, deltas, .Miter, 0.0, miter_limit, allocator)
+}
+
+offset_polygon_round :: #force_inline proc(polygon: [][2]f64, deltas: []f64, arc_resolution: f64, allocator := context.allocator) -> [][][2]f64 {
+    return offset_polygon_edges(polygon, deltas, .Round, arc_resolution, 0.0, allocator)
+}
+
+offset_polygon_bevel :: #force_inline proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][][2]f64 {
+    return offset_polygon_edges(polygon, deltas, .Bevel, 0.0, 0.0, allocator)
+}
 
 // union_polygons returns the union of all input polygons.
 // All polygons should be CCW wound.

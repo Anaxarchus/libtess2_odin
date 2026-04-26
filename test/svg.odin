@@ -72,7 +72,7 @@ _dot :: proc(b: ^strings.Builder, p: [2]f64, idx: int, ox, oy, scale, shift_x: f
     fmt.sbprintf(b, `  <circle cx="%.2f" cy="%.2f" r="3" fill="%v"/>`, x, y, color)
     fmt.sbprint(b, "\n")
     fmt.sbprintf(b,
-        `  <text x="%.2f" y="%.2f" font-family="monospace" font-size="9" fill="%v" text-anchor="middle">(%v,%v)</text>`+"\n",
+    `  <text x="%.2f" y="%.2f" font-family="monospace" font-size="6" fill="%v" stroke="#111" stroke-width="2" paint-order="stroke fill" text-anchor="middle">(%v,%v)</text>`+"\n",
         x, y - 7, color, int(p.x), int(p.y))
 }
 
@@ -88,6 +88,21 @@ _swatch :: proc(b: ^strings.Builder, x, y: f64, color, text: string) {
     fmt.sbprintf(b, `  <rect x="%.2f" y="%.2f" width="12" height="12" fill="%v" rx="2"/>`, x, y, color)
     fmt.sbprint(b, "\n")
     _label(b, x + 18, y + 10, text, "#cccccc", 11)
+}
+
+@(private)
+_sanitize_filename :: proc(s: string, allocator := context.allocator) -> string {
+    b: strings.Builder
+    strings.builder_init(&b, allocator)
+    for r in s {
+        switch r {
+        case 'a'..='z', 'A'..='Z', '0'..='9', '_':
+            strings.write_rune(&b, r)
+        case:
+            strings.write_rune(&b, '_')
+        }
+    }
+    return strings.to_string(b)
 }
 
 // Export a two-panel SVG comparing `basis` (before) with `result` (after).
@@ -147,10 +162,8 @@ export_svg :: proc(basis: [][2]f64, result: [][][2]f64, description: string) -> 
     fmt.sbprint(&b, "</svg>\n")
 
     // ── write file ───────────────────────────────────────────────────────
-    filename_raw := strings.clone(description)
-    defer delete(filename_raw)
-    filename, was_allocation := strings.replace_all(filename_raw, " ", "_")
-    defer if was_allocation do delete(filename)
+    filename := _sanitize_filename(description)
+    defer delete(filename)
     path := fmt.tprintf("%v.svg", filename)
 
     return os.write_entire_file(path, transmute([]byte)strings.to_string(b))
