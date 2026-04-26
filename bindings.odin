@@ -1,54 +1,27 @@
-/*
-    https://github.com/memononen/libtess2
-
-    Compiled with TESS_USE_DOUBLE.
-
-    The master branch of LibTess2 has a bug where TESS_USE_DOUBLE
-    is not actually wired up. Before building, apply this fix in
-    Include/tesselator.h
-    
-    replace:
-        typedef float TESSreal;
-    With:
-        #ifdef TESS_USE_DOUBLE
-            typedef double TESSreal;
-        #else
-            typedef float TESSreal;
-        #endif
-
-    Then build the static library from the libtess2 source directory:
-        cc -O2 -DTESS_USE_DOUBLE -IInclude \
-            Source/tess.c \
-            Source/mesh.c \
-            Source/sweep.c \
-            Source/geom.c \
-            Source/dict.c \
-            Source/priorityq.c \
-            Source/bucketalloc.c \
-            -c
-        ar rcs libtess2.a *.o
-    
-    Or just use the included build scripts: build_libtess2.bat | build_libtess2.sh
-*/
-
 package libtess2
+
+import "core:fmt"
 
 when ODIN_OS == .Windows {
     foreign import lib "bin/libtess2.lib"
-} else when ODIN_OS == .Darwin {
-    foreign import lib "bin/libtess2.a"
 } else {
     foreign import lib "bin/libtess2.a"
 }
 
-// UNDEF is the sentinel index value for missing or boundary indices.
 UNDEF :: i32(~u32(0))
 
-// Opaque tesselator handle.
-Tesselator :: struct {}
+Tesselator :: struct{}
 
-// Winding rules
-// See: http://www.glprogramming.com/red/chapter11.html
+TesselatorContext :: struct(vertex_size: int) {
+    handle: ^Tesselator,
+    normal: [3]f64,
+}
+
+Connected_Polygon :: struct(N: int) {
+    verts:     [4][N]f64,
+    neighbors: [4]i32,
+}
+
 Winding_Rule :: enum i32 {
     Odd         = 0,
     Nonzero     = 1,
@@ -63,102 +36,137 @@ Element_Type :: enum i32 {
     Boundary_Contours  = 2,
 }
 
+Status :: enum i32 {
+    Ok            = 0,
+    Out_Of_Memory = 1,
+    Invalid_Input = 2,
+}
+
 @(default_calling_convention = "c", link_prefix = "tess")
 foreign lib {
-    // Create a new tesselator using the default malloc allocator.
-    NewTess :: proc(alloc: rawptr) -> ^Tesselator ---
-
-    // Destroy a tesselator and free all associated memory.
-    DeleteTess :: proc(tess: ^Tesselator) ---
-
-    // Set a tesselator option.
-    // option 0 = constrained Delaunay triangulation (value 1 to enable).
-    SetOption :: proc(tess: ^Tesselator, option: i32, value: i32) ---
-
-    // Add a contour to be tessellated.
-    AddContour :: proc(tess: ^Tesselator, size: i32, pointer: rawptr, stride: i32, count: i32) ---
-
-    // Tessellate all added contours.
-    // If you pass 'nil' for normal, libtess2 will automatically compute it (recommended).
-    // Returns 1 on success, 0 on failure.
-    Tesselate :: proc(tess: ^Tesselator, winding_rule: Winding_Rule, element_type: Element_Type, poly_size: i32, vertex_size: i32, normal: ^f64) -> i32 ---
-
+    NewTess          :: proc(alloc: rawptr) -> ^Tesselator ---
+    DeleteTess       :: proc(tess: ^Tesselator) ---
+    SetOption        :: proc(tess: ^Tesselator, option: i32, value: i32) ---
+    AddContour       :: proc(tess: ^Tesselator, size: i32, pointer: rawptr, stride: i32, count: i32) ---
+    Tesselate        :: proc(tess: ^Tesselator, winding_rule: Winding_Rule, element_type: Element_Type, poly_size: i32, vertex_size: i32, normal: ^f64) -> i32 ---
     GetVertexCount   :: proc(tess: ^Tesselator) -> i32 ---
     GetElementCount  :: proc(tess: ^Tesselator) -> i32 ---
     GetVertices      :: proc(tess: ^Tesselator) -> [^]f64 ---
-
-    // Maps output vertices back to original input vertex indices.
-    // Vertices generated at intersections are marked UNDEF.
-    // Length = GetVertexCount().
     GetVertexIndices :: proc(tess: ^Tesselator) -> [^]i32 ---
-
-    // Element index array. Layout depends on element_type. See Element_Type.
     GetElements      :: proc(tess: ^Tesselator) -> [^]i32 ---
+    GetStatus :: proc(tess: ^Tesselator) -> Status ---
 }
 
-// tesselate_triangles takes one or more contours and returns a flat list of triangles
-tesselate_triangles :: proc(contours: [][]([2]f64), winding: Winding_Rule = .Odd, allocator := context.allocator) -> [][3][2]f64 {
-    if len(contours) == 0 do return nil
-
-    tess := NewTess(nil)
-    if tess == nil do return nil
-    defer DeleteTess(tess)
-
-    for c in contours {
-        if len(c) == 0 do continue
-        AddContour(tess, 2, raw_data(c), size_of([2]f64), i32(len(c)))
-    }
-
-    if Tesselate(tess, winding, .Polygons, 3, 2, nil) == 0 do return nil
-
-    vert_count := GetVertexCount(tess)
-    elem_count := GetElementCount(tess)
+make_boundary_contour_results :: proc(tess: TesselatorContext($N), allocator := context.allocator) -> [][][N]f64 {
+    elem_count := GetElementCount(tess.handle)
     if elem_count == 0 do return nil
 
-    verts    := ([^][2]f64)(GetVertices(tess))[:vert_count]
-    elements := ([^][3]i32)(GetElements(tess))[:elem_count]
+    vert_count := GetVertexCount(tess.handle)
+    verts      := ([^][N]f64)(GetVertices(tess.handle))[:vert_count]
+    elems      := GetElements(tess.handle)
 
-    result := make([][3][2]f64, elem_count, allocator)
-    for tri, i in elements {
-        for j in 0..<3 {
-            idx := tri[j]
-            if idx == UNDEF do continue
-            result[i][j] = verts[idx]
+    result := make([][][N]f64, elem_count, allocator)
+    for i in 0..<int(elem_count) {
+        base  := int(elems[i * 2])
+        count := int(elems[i * 2 + 1])
+        c     := make([][N]f64, count, allocator)
+        copy(c, verts[base : base + count])
+        result[i] = c
+    }
+    return result
+}
+
+// polygon_size must be passed as a compile-time constant so it can
+// be used as an array size in the element cast.
+make_polygon_results :: proc(tess: TesselatorContext($N), $polygon_size: int, allocator := context.allocator) -> [][polygon_size][N]f64 {
+    vert_count := GetVertexCount(tess.handle)
+    elem_count := GetElementCount(tess.handle)
+    if elem_count == 0 do return nil
+
+    verts    := ([^][N]f64)(GetVertices(tess.handle))[:vert_count]
+    elements := ([^][polygon_size]i32)(GetElements(tess.handle))[:elem_count]
+
+    result := make([][polygon_size][N]f64, elem_count, allocator)
+    for poly, i in elements {
+        for j in 0..<polygon_size {
+            idx          := poly[j]
+            result[i][j]  = verts[idx if idx != UNDEF else poly[0]]
         }
     }
     return result
 }
 
-// contours takes one or more contours, classifies regions by winding rule,
-// and returns the boundary contours of the result.
-tesselate_contours :: proc(input: [][]([2]f64), winding: Winding_Rule = .Positive, allocator := context.allocator) -> [][][2]f64 {
-    if len(input) == 0 do return nil
-
-    tess := NewTess(nil)
-    if tess == nil do return nil
-    defer DeleteTess(tess)
-
-    for c in input {
-        if len(c) == 0 do continue
-        AddContour(tess, 2, raw_data(c), size_of([2]f64), i32(len(c)))
-    }
-
-    if Tesselate(tess, winding, .Boundary_Contours, 1, 2, nil) == 0 do return nil
-
-    elem_count := GetElementCount(tess)
+make_connected_polygon_results :: proc(tess: TesselatorContext($N), $poly_size: int, allocator := context.allocator) -> []Connected_Polygon(N) {
+    vert_count := GetVertexCount(tess.handle)
+    elem_count := GetElementCount(tess.handle)
     if elem_count == 0 do return nil
 
-    vert_count := GetVertexCount(tess)
-    verts      := ([^][2]f64)(GetVertices(tess))[:vert_count]
-    elems      := GetElements(tess)
+    verts  := ([^][N]f64)(GetVertices(tess.handle))[:vert_count]
+    elems  := GetElements(tess.handle)
+    stride := poly_size * 2
 
-    result := make([][][2]f64, elem_count, allocator)
+    result := make([]Connected_Polygon(N), elem_count, allocator)
     for i in 0..<int(elem_count) {
-        base  := int(elems[i * 2])
-        count := int(elems[i * 2 + 1])
-        c := make([][2]f64, count, allocator)
-        copy(c, verts[base : base + count])
-        result[i] = c
+        base := i * stride
+        for j in 0..<poly_size {
+            idx                    := elems[base + j]
+            result[i].verts[j]     = verts[idx if idx != UNDEF else elems[base]]
+            result[i].neighbors[j] = elems[base + poly_size + j]
+        }
     }
     return result
+}
+
+begin :: #force_inline proc($vertex_size: int, use_delaunay: bool = false, normal: [3]f64 = {0, 0, 0}) -> (tess: TesselatorContext(vertex_size), ok: bool) {
+    handle := NewTess(nil)
+    if handle == nil do return {}, false
+    SetOption(handle, 0, i32(use_delaunay))
+    return {handle, normal}, true
+}
+
+add :: #force_inline proc(tess: TesselatorContext($N), contour: [][N]f64) -> bool {
+    if tess.handle == nil {
+        fmt.println("ERROR: Tesselator handle is nil")
+        return false
+    }
+    AddContour(tess.handle, i32(N), raw_data(contour), size_of([N]f64), i32(len(contour)))
+    status := GetStatus(tess.handle)
+    if status != .Ok {
+        fmt.println("ERROR: AddContour failed:", status)
+        return false
+    }
+    return true
+}
+
+tesselate_polygons :: #force_inline proc(tess: ^TesselatorContext($N), winding: Winding_Rule, $polygon_size: int, allocator := context.allocator) -> [][polygon_size][N]f64 {
+    if Tesselate(tess.handle, winding, .Polygons, i32(polygon_size), i32(N), &tess.normal[0]) == 0 {
+        fmt.println("ERROR: Tesselate failed:", GetStatus(tess.handle))
+        return nil
+    }
+    return make_polygon_results(tess^, polygon_size, allocator)
+}
+
+tesselate_connected_polygons :: #force_inline proc(tess: ^TesselatorContext($N), winding: Winding_Rule, $poly_size: int, allocator := context.allocator) -> []Connected_Polygon(N) {
+    if Tesselate(tess.handle, winding, .Connected_Polygons, i32(poly_size), i32(N), &tess.normal[0]) == 0 {
+        fmt.println("ERROR: Tesselate failed:", GetStatus(tess.handle))
+        return nil
+    }
+    return make_connected_polygon_results(tess^, poly_size, allocator)
+}
+
+tesselate_boundary_contours :: #force_inline proc(tess: ^TesselatorContext($N), winding: Winding_Rule, allocator := context.allocator) -> [][][N]f64 {
+    if Tesselate(tess.handle, winding, .Boundary_Contours, 1, i32(N), &tess.normal[0]) == 0 {
+        fmt.println("ERROR: Tesselate failed:", GetStatus(tess.handle))
+        return nil
+    }
+    return make_boundary_contour_results(tess^, allocator)
+}
+
+end :: #force_inline proc(tess: TesselatorContext($N)) {
+    DeleteTess(tess.handle)
+}
+
+delete_contours :: proc(contours: [][][$N]f64, allocator := context.allocator) {
+    for c in contours do delete(c, allocator)
+    delete(contours, allocator)
 }

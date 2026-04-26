@@ -38,10 +38,13 @@ _line_intersect :: proc(a0, a1, b0, b1: [2]f64, eps := 1e-10) -> (hit: bool, poi
 }
 
 @(private)
-_make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][2]f64 {
+_is_concave :: #force_inline proc(p, prev, next: [2]f64) -> bool {
+    return linalg.cross(p - prev, next - p) > 0
+}
+
+make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][2]f64 {
     C  := len(polygon)
     dC := len(deltas) - 1
-
     // up to 3 points per vertex: end of incoming edge, original vertex, start of outgoing edge
     buf   := make([][2]f64, C * 3, allocator)
     count := 0
@@ -66,18 +69,21 @@ _make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := co
         is_concave := _is_concave(polygon[i], polygon[h], polygon[j])
         inner      := deltas[min(i, dC)] < 0
 
-        needs_v := (!is_concave && inner) || (is_concave && !inner)
+        // V through original vertex when:
+        //   concave + inner offset: creates invalid loop with negative winding → tessellator discards
+        //   convex  + outer offset: creates invalid loop with negative winding → tessellator discards
+        needs_v := (is_concave && inner) || (!is_concave && !inner)
 
         if needs_v {
-            // march: end of incoming → original vertex → start of outgoing
-            buf[count] = p_end;        count += 1
-            buf[count] = polygon[i];   count += 1
-            buf[count] = p_start;      count += 1
+            // V: end of incoming → original vertex → start of outgoing
+            buf[count] = p_end;      count += 1
+            buf[count] = polygon[i]; count += 1
+            buf[count] = p_start;    count += 1
         } else {
             // miter: intersect the two offset edge lines
             hit, x := _line_intersect(
-                polygon[h] - n_in  * delta_in,  p_end,
-                p_start,                          polygon[j] - n_out * delta_out,
+                polygon[h] - n_in  * delta_in, p_end,
+                p_start,                        polygon[j] - n_out * delta_out,
             )
             if hit {
                 buf[count] = x; count += 1
@@ -91,22 +97,6 @@ _make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := co
     return buf[:count]
 }
 
-@(private)
-_boolean :: proc(polygons: [][][2]f64, rule: Winding_Rule, allocator := context.allocator) -> [][][2]f64 {
-    if len(polygons) == 0 do return {}
-    return tesselate_contours(polygons, rule, allocator)
-}
-
-@(private)
-_free_result :: proc(r: [][][2]f64) {
-    for c in r do delete(c)
-    delete(r)
-}
-
-@(private)
-_is_concave :: #force_inline proc(p, prev, next: [2]f64) -> bool {
-    return linalg.cross(p - prev, next - p) < 0
-}
 
 // offset_polygon offsets all edges of a polygon by a uniform delta.
 // Negative delta shrinks, positive delta expands.
@@ -122,15 +112,28 @@ offset_polygon :: #force_inline proc(polygon: [][2]f64, delta: f64, allocator :=
 offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][][2]f64 {
     if len(polygon) < 3 do return {}
 
-    cleaned := tesselate_contours({polygon}, .Positive, context.temp_allocator)
-    if len(cleaned) == 0 do return {}
+    // step 1: clean the input polygon
+    ctx, okay := begin(2, false)
+        okay = add(ctx, polygon)
+        cleaned := tesselate_boundary_contours(&ctx, .Positive, allocator)
+        defer delete_contours(cleaned)
+    end(ctx)
 
-    raw := make([][]([2]f64), len(cleaned), context.temp_allocator)
+    // step 2: make the raw offset curve
+    raw := make([][]([2]f64), len(cleaned))
+    defer delete_contours(raw)
     for i in 0..<len(cleaned) {
-        raw[i] = _make_raw_offset_curve(cleaned[i], deltas, context.temp_allocator)
+        raw[i] = make_raw_offset_curve(cleaned[i], deltas)
     }
 
-    return _boolean(raw, .Positive, allocator)
+    ctx, okay = begin(2, false)
+        for i in 0..<len(raw) {
+            okay = add(ctx, raw[0])
+        }
+        result := tesselate_boundary_contours(&ctx, .Positive, allocator)
+    end(ctx)
+
+    return result
 }
 
 offset :: proc {offset_polygon, offset_polygon_edges}
@@ -138,53 +141,69 @@ offset :: proc {offset_polygon, offset_polygon_edges}
 // union_polygons returns the union of all input polygons.
 // All polygons should be CCW wound.
 union_polygons :: #force_inline proc(polygons: [][][2]f64, allocator := context.allocator) -> [][][2]f64 {
-    return _boolean(polygons, .Nonzero, allocator)
+    ctx, ok := begin(2, false)
+        for i in 0..<len(polygons) do add(ctx, polygons[i])
+        result := tesselate_boundary_contours(&ctx, .Nonzero, allocator)
+    end(ctx)
+    return result
 }
 
 // intersect_polygons returns the intersection of all input polygons.
 // All polygons should be CCW wound.
 // Returns only regions covered by two or more input polygons.
 intersect_polygons :: #force_inline proc(polygons: [][][2]f64, allocator := context.allocator) -> [][][2]f64 {
-    return _boolean(polygons, .Abs_Geq_Two, allocator)
+    ctx, ok := begin(2, false)
+        for i in 0..<len(polygons) do add(ctx, polygons[i])
+        result := tesselate_boundary_contours(&ctx, .Abs_Geq_Two, allocator)
+    end(ctx)
+    return result
 }
 
 // xor_polygons returns the symmetric difference of all input polygons.
 // All polygons should be CCW wound.
 // Returns regions covered by an odd number of input polygons.
 xor_polygons :: #force_inline proc(polygons: [][][2]f64, allocator := context.allocator) -> [][][2]f64 {
-    return _boolean(polygons, .Odd, allocator)
+    ctx, ok := begin(2, false)
+        for i in 0..<len(polygons) do add(ctx, polygons[i])
+        result := tesselate_boundary_contours(&ctx, .Odd, allocator)
+    end(ctx)
+    return result
 }
 
 // difference_polygons subtracts all subsequent polygons from the first.
 // polygons[0] is the subject (CCW). polygons[1:] are the cutters and will
 // be reversed internally. Returns polygons[0] minus the union of polygons[1:].
 difference_polygons :: proc(polygons: [][][2]f64, allocator := context.allocator) -> [][][2]f64 {
-    if len(polygons) == 0 do return {}
-    if len(polygons) == 1 {
-        result    := make([][][2]f64, 1, allocator)
-        result[0]  = make([][2]f64, len(polygons[0]), allocator)
-        copy(result[0], polygons[0])
-        return result
-    }
+
+    if len(polygons) < 2 do return {}
 
     // pass 1: get the intersection of all cutters with the subject
-    intersection := _boolean(polygons, .Abs_Geq_Two)
-    defer _free_result(intersection)
+    ctx, ok := begin(2, false)
+        for i in 0..<len(polygons) do add(ctx, polygons[i])
+        intersection := tesselate_boundary_contours(&ctx, .Abs_Geq_Two)
+        defer delete(intersection)
+    end(ctx)
 
     // pass 2: reverse the intersection and use it to cut the subject
     for c in intersection do slice.reverse(c)
+    ctx, ok = begin(2, false)
+        add(ctx, polygons[0])
+        for i in 0..<len(intersection) do add(ctx, intersection[i])
+        result := tesselate_boundary_contours(&ctx, .Nonzero, allocator)
+    end(ctx)
 
-    input := make([][]([2]f64), 1 + len(intersection))
-    defer delete(input)
-    input[0] = polygons[0]
-    for i in 0..<len(intersection) do input[i+1] = intersection[i]
-
-    return _boolean(input, .Nonzero, allocator)
+    return result
 }
 
 // triangulate_polygons triangulates a set of polygons into a flat list of
 // resolved triangles as [3][2]f64.
 triangulate_polygons :: #force_inline proc(polygons: [][][2]f64, allocator := context.allocator) -> [][3][2]f64 {
     if len(polygons) == 0 do return {}
-    return tesselate_triangles(polygons, .Odd, allocator)
+
+    ctx, ok := begin(2, false)
+        for i in 0..<len(polygons) do add(ctx, polygons[i])
+        result := tesselate_polygons(&ctx, .Odd, 3, allocator)
+    end(ctx)
+
+    return result
 }
