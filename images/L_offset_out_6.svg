@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="400" style="background:#1a1a2e">
+  <polygon points="40.91,259.09 259.09,259.09 259.09,150.00 150.00,150.00 150.00,40.91 40.91,40.91 " fill="#4cc9f0" fill-opacity="0.30" stroke="#90e0ef" stroke-width="2.0" stroke-linejoin="round"/>
+  <circle cx="40.91" cy="259.09" r="3" fill="#90e0ef"/>
+  <text x="40.91" y="252.09" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-60,-60)</text>
+  <circle cx="259.09" cy="259.09" r="3" fill="#90e0ef"/>
+  <text x="259.09" y="252.09" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(60,-60)</text>
+  <circle cx="259.09" cy="150.00" r="3" fill="#90e0ef"/>
+  <text x="259.09" y="143.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(60,0)</text>
+  <circle cx="150.00" cy="150.00" r="3" fill="#90e0ef"/>
+  <text x="150.00" y="143.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(0,0)</text>
+  <circle cx="150.00" cy="40.91" r="3" fill="#90e0ef"/>
+  <text x="150.00" y="33.91" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(0,60)</text>
+  <circle cx="40.91" cy="40.91" r="3" fill="#90e0ef"/>
+  <text x="40.91" y="33.91" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-60,60)</text>
+  <text x="10.00" y="16.00" font-family="monospace" font-size="13" fill="#e0e0e0">basis</text>
+  <polygon points="360.91,259.09 579.09,259.09 579.09,150.00 470.00,150.00 470.00,40.91 360.91,40.91 " fill="#4cc9f0" fill-opacity="0.06" stroke="#4cc9f0" stroke-width="1.0" stroke-dasharray="5 3" stroke-linejoin="round"/>
+  <polygon points="480.91,139.09 480.91,30.00 350.00,30.00 350.00,270.00 590.00,270.00 590.00,139.09 " fill="#f72585" fill-opacity="0.40" stroke="#f72585" stroke-width="2.0" stroke-linejoin="round"/>
+  <circle cx="480.91" cy="139.09" r="3" fill="#f72585"/>
+  <text x="480.91" y="132.09" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(6,6)</text>
+  <circle cx="480.91" cy="30.00" r="3" fill="#f72585"/>
+  <text x="480.91" y="23.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(6,66)</text>
+  <circle cx="350.00" cy="30.00" r="3" fill="#f72585"/>
+  <text x="350.00" y="23.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-66,66)</text>
+  <circle cx="350.00" cy="270.00" r="3" fill="#f72585"/>
+  <text x="350.00" y="263.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-66,-66)</text>
+  <circle cx="590.00" cy="270.00" r="3" fill="#f72585"/>
+  <text x="590.00" y="263.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(66,-66)</text>
+  <circle cx="590.00" cy="139.09" r="3" fill="#f72585"/>
+  <text x="590.00" y="132.09" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(66,6)</text>
+  <text x="330.00" y="16.00" font-family="monospace" font-size="13" fill="#e0e0e0">result (1 contour)</text>
+  <rect x="10.00" y="312.00" width="12" height="12" fill="#4cc9f0" rx="2"/>
+  <text x="28.00" y="322.00" font-family="monospace" font-size="11" fill="#cccccc">basis</text>
+  <rect x="10.00" y="330.00" width="12" height="12" fill="#f72585" rx="2"/>
+  <text x="28.00" y="340.00" font-family="monospace" font-size="11" fill="#cccccc">contour 0</text>
+  <text x="330.00" y="322.00" font-family="monospace" font-size="11" fill="#666666">L offset out +6</text>
+</svg>

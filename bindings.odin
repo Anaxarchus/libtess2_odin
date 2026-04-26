@@ -54,7 +54,7 @@ foreign lib {
     GetVertices      :: proc(tess: ^Tesselator) -> [^]f64 ---
     GetVertexIndices :: proc(tess: ^Tesselator) -> [^]i32 ---
     GetElements      :: proc(tess: ^Tesselator) -> [^]i32 ---
-    GetStatus :: proc(tess: ^Tesselator) -> Status ---
+    GetStatus        :: proc(tess: ^Tesselator) -> Status ---
 }
 
 make_boundary_contour_results :: proc(tess: TesselatorContext($N), allocator := context.allocator) -> [][][N]f64 {

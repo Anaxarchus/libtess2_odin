@@ -3,6 +3,7 @@ package libtess2
 // based on the algorithm outlined in this paper: https://mcmains.me.berkeley.edu/pubs/DAC05OffsetPolygon.pdf
 
 import "core:slice"
+import "core:math"
 import "core:math/linalg"
 import "core:fmt"
 
@@ -40,6 +41,12 @@ _line_intersect :: proc(a0, a1, b0, b1: [2]f64, eps := 1e-10) -> (hit: bool, poi
 @(private)
 _is_concave :: #force_inline proc(p, prev, next: [2]f64) -> bool {
     return linalg.cross(p - prev, next - p) > 0
+}
+
+// returns true if the offset polygon has fully inverted
+@(private)
+_is_fully_inverted :: proc(polygon: [][2]f64, raw: [][2]f64) -> bool {
+    return math.sign(_signed_area(polygon)) != math.sign(_signed_area(raw))
 }
 
 make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][2]f64 {
@@ -94,6 +101,8 @@ make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := con
         }
     }
 
+    if _is_fully_inverted(polygon, buf[:count]) do return {}
+
     return buf[:count]
 }
 
@@ -127,9 +136,9 @@ offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, allocator := cont
     }
 
     ctx, okay = begin(2, false)
-        for i in 0..<len(raw) {
-            okay = add(ctx, raw[0])
-        }
+    for i in 0..<len(raw) {
+        okay = add(ctx, raw[i])
+    }
         result := tesselate_boundary_contours(&ctx, .Positive, allocator)
     end(ctx)
 

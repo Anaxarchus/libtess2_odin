@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="400" style="background:#1a1a2e">
+  <polygon points="120.00,270.00 180.00,270.00 180.00,180.00 270.00,180.00 270.00,120.00 180.00,120.00 180.00,30.00 120.00,30.00 120.00,120.00 30.00,120.00 30.00,180.00 120.00,180.00 " fill="#4cc9f0" fill-opacity="0.30" stroke="#90e0ef" stroke-width="2.0" stroke-linejoin="round"/>
+  <circle cx="120.00" cy="270.00" r="3" fill="#90e0ef"/>
+  <text x="120.00" y="263.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-15,-60)</text>
+  <circle cx="180.00" cy="270.00" r="3" fill="#90e0ef"/>
+  <text x="180.00" y="263.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(15,-60)</text>
+  <circle cx="180.00" cy="180.00" r="3" fill="#90e0ef"/>
+  <text x="180.00" y="173.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(15,-15)</text>
+  <circle cx="270.00" cy="180.00" r="3" fill="#90e0ef"/>
+  <text x="270.00" y="173.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(60,-15)</text>
+  <circle cx="270.00" cy="120.00" r="3" fill="#90e0ef"/>
+  <text x="270.00" y="113.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(60,15)</text>
+  <circle cx="180.00" cy="120.00" r="3" fill="#90e0ef"/>
+  <text x="180.00" y="113.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(15,15)</text>
+  <circle cx="180.00" cy="30.00" r="3" fill="#90e0ef"/>
+  <text x="180.00" y="23.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(15,60)</text>
+  <circle cx="120.00" cy="30.00" r="3" fill="#90e0ef"/>
+  <text x="120.00" y="23.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-15,60)</text>
+  <circle cx="120.00" cy="120.00" r="3" fill="#90e0ef"/>
+  <text x="120.00" y="113.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-15,15)</text>
+  <circle cx="30.00" cy="120.00" r="3" fill="#90e0ef"/>
+  <text x="30.00" y="113.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-60,15)</text>
+  <circle cx="30.00" cy="180.00" r="3" fill="#90e0ef"/>
+  <text x="30.00" y="173.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-60,-15)</text>
+  <circle cx="120.00" cy="180.00" r="3" fill="#90e0ef"/>
+  <text x="120.00" y="173.00" font-family="monospace" font-size="9" fill="#90e0ef" text-anchor="middle">(-15,-15)</text>
+  <text x="10.00" y="16.00" font-family="monospace" font-size="13" fill="#e0e0e0">basis</text>
+  <polygon points="440.00,270.00 500.00,270.00 500.00,180.00 590.00,180.00 590.00,120.00 500.00,120.00 500.00,30.00 440.00,30.00 440.00,120.00 350.00,120.00 350.00,180.00 440.00,180.00 " fill="#4cc9f0" fill-opacity="0.06" stroke="#4cc9f0" stroke-width="1.0" stroke-dasharray="5 3" stroke-linejoin="round"/>
+  <polygon points="456.00,136.00 366.00,136.00 366.00,164.00 456.00,164.00 456.00,254.00 484.00,254.00 484.00,164.00 574.00,164.00 574.00,136.00 484.00,136.00 484.00,46.00 456.00,46.00 " fill="#f72585" fill-opacity="0.40" stroke="#f72585" stroke-width="2.0" stroke-linejoin="round"/>
+  <circle cx="456.00" cy="136.00" r="3" fill="#f72585"/>
+  <text x="456.00" y="129.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-7,7)</text>
+  <circle cx="366.00" cy="136.00" r="3" fill="#f72585"/>
+  <text x="366.00" y="129.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-52,7)</text>
+  <circle cx="366.00" cy="164.00" r="3" fill="#f72585"/>
+  <text x="366.00" y="157.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-52,-7)</text>
+  <circle cx="456.00" cy="164.00" r="3" fill="#f72585"/>
+  <text x="456.00" y="157.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-7,-7)</text>
+  <circle cx="456.00" cy="254.00" r="3" fill="#f72585"/>
+  <text x="456.00" y="247.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-7,-52)</text>
+  <circle cx="484.00" cy="254.00" r="3" fill="#f72585"/>
+  <text x="484.00" y="247.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(7,-52)</text>
+  <circle cx="484.00" cy="164.00" r="3" fill="#f72585"/>
+  <text x="484.00" y="157.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(7,-7)</text>
+  <circle cx="574.00" cy="164.00" r="3" fill="#f72585"/>
+  <text x="574.00" y="157.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(52,-7)</text>
+  <circle cx="574.00" cy="136.00" r="3" fill="#f72585"/>
+  <text x="574.00" y="129.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(52,7)</text>
+  <circle cx="484.00" cy="136.00" r="3" fill="#f72585"/>
+  <text x="484.00" y="129.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(7,7)</text>
+  <circle cx="484.00" cy="46.00" r="3" fill="#f72585"/>
+  <text x="484.00" y="39.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(7,52)</text>
+  <circle cx="456.00" cy="46.00" r="3" fill="#f72585"/>
+  <text x="456.00" y="39.00" font-family="monospace" font-size="9" fill="#f72585" text-anchor="middle">(-7,52)</text>
+  <text x="330.00" y="16.00" font-family="monospace" font-size="13" fill="#e0e0e0">result (1 contour)</text>
+  <rect x="10.00" y="312.00" width="12" height="12" fill="#4cc9f0" rx="2"/>
+  <text x="28.00" y="322.00" font-family="monospace" font-size="11" fill="#cccccc">basis</text>
+  <rect x="10.00" y="330.00" width="12" height="12" fill="#f72585" rx="2"/>
+  <text x="28.00" y="340.00" font-family="monospace" font-size="11" fill="#cccccc">contour 0</text>
+  <text x="330.00" y="322.00" font-family="monospace" font-size="11" fill="#666666">Cross offset -8</text>
+</svg>
