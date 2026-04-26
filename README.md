@@ -153,15 +153,20 @@ The following convenience operations are provided in `polygon.odin`:
 ## Examples
 These include a few pathologies, but mostly normal
 
-### Offset: L-shape inward
+### Offset: Concave Shapes
 | Offset in -6 | Per-edge offset | Offset out +6 |
 |---|---|---|
 | ![](images/L_offset_in_6.svg) | ![](images/L_per_edge_offset.svg) | ![](images/L_offset_out_6.svg) |
 
-### Offset: Collapse & Split
-| L arm collapse -30 | H split → 2 shapes | U channel collapse |
-|---|---|---|
-| ![](images/L_arm_collapse_30.svg) | ![](images/H_split_6_2_shapes_.svg) | ![](images/U_channel_collapse_25.svg) |
+### Offset: Collapse
+| L arm collapse -30 | U channel collapse |
+|---|---|
+| ![](images/L_arm_collapse_30.svg) | ![](images/U_channel_collapse_25.svg) |
+
+### Offset: Split & Partial Collapse
+| H split → 2 shapes | L arm partial collapse |
+|---|---|
+| ![](images/H_split_6_2_shapes_.svg) | ![](images/L_arm_partial_collapse_10.svg) |
 
 ### Offset: Thin geometry
 | Thin rect near-collapse | Thin rect gone | U-shape offset |
