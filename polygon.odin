@@ -4,6 +4,27 @@ package libtess2
 
 import "core:slice"
 import "core:math/linalg"
+import "core:fmt"
+
+
+Join_Type :: enum {
+    Miter,
+    Bevel,
+    Round,
+}
+
+@(private)
+_signed_area :: proc(pts: [][2]f64) -> f64 {
+    area: f64
+    n := len(pts)
+    for i in 0..<n {
+        j := (i + 1) % n
+        area += pts[i].x * pts[j].y
+        area -= pts[j].x * pts[i].y
+    }
+    return area * 0.5
+}
+
 
 @(private)
 _line_intersect :: proc(a0, a1, b0, b1: [2]f64, eps := 1e-10) -> (hit: bool, point: [2]f64) {
@@ -17,46 +38,74 @@ _line_intersect :: proc(a0, a1, b0, b1: [2]f64, eps := 1e-10) -> (hit: bool, poi
 }
 
 @(private)
-_make_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][2]f64 {
-    C       := len(polygon)
-    dC      := len(deltas) - 1
-    centers := make([][2]f64, C, allocator)
+_make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][2]f64 {
+    C  := len(polygon)
+    dC := len(deltas) - 1
 
-    // pass 1: translate each edge midpoint along its normal * delta
+    // up to 3 points per vertex: end of incoming edge, original vertex, start of outgoing edge
+    buf   := make([][2]f64, C * 3, allocator)
+    count := 0
+
     for i in 0..<C {
-        j         := (i + 1) % C
-        dir       := linalg.normalize0(polygon[j] - polygon[i])
-        n         := linalg.orthogonal(dir)
-        centers[i] = (polygon[i] + polygon[j]) * 0.5 - n * deltas[min(i, dC)]
+        h := (i - 1 + C) % C
+        j := (i + 1) % C
+
+        // incoming edge: h -> i
+        n_in  := linalg.orthogonal(linalg.normalize0(polygon[i] - polygon[h]))
+        // outgoing edge: i -> j
+        n_out := linalg.orthogonal(linalg.normalize0(polygon[j] - polygon[i]))
+
+        delta_in  := deltas[min(h, dC)]
+        delta_out := deltas[min(i, dC)]
+
+        // end of incoming offset edge (arrives at vertex i)
+        p_end   := polygon[i] - n_in  * delta_in
+        // start of outgoing offset edge (leaves vertex i)
+        p_start := polygon[i] - n_out * delta_out
+
+        is_concave := _is_concave(polygon[i], polygon[h], polygon[j])
+        inner      := deltas[min(i, dC)] < 0
+
+        needs_v := (!is_concave && inner) || (is_concave && !inner)
+
+        if needs_v {
+            // march: end of incoming → original vertex → start of outgoing
+            buf[count] = p_end;        count += 1
+            buf[count] = polygon[i];   count += 1
+            buf[count] = p_start;      count += 1
+        } else {
+            // miter: intersect the two offset edge lines
+            hit, x := _line_intersect(
+                polygon[h] - n_in  * delta_in,  p_end,
+                p_start,                          polygon[j] - n_out * delta_out,
+            )
+            if hit {
+                buf[count] = x; count += 1
+            } else {
+                buf[count] = p_end;   count += 1
+                buf[count] = p_start; count += 1
+            }
+        }
     }
 
-    // pass 2: intersect adjacent offset centers to find corner vertices
-    for i in 0..<C {
-        j  := (i + 1) % C
-        k  := (i + 2) % C
-        dI := linalg.normalize0(polygon[j] - polygon[i])
-        dJ := linalg.normalize0(polygon[k] - polygon[j])
-        hit, x := _line_intersect(centers[i], centers[i] + dI, centers[j], centers[j] + dJ)
-        if hit do centers[j] = x
-    }
-
-    return centers
+    return buf[:count]
 }
 
 @(private)
 _boolean :: proc(polygons: [][][2]f64, rule: Winding_Rule, allocator := context.allocator) -> [][][2]f64 {
     if len(polygons) == 0 do return {}
-    raw    := tesselate_contours(polygons, rule, allocator)
-    result := make([][][2]f64, len(raw), allocator)
-    for i in 0..<len(raw) do result[i] = raw[i]
-    delete(raw)
-    return result
+    return tesselate_contours(polygons, rule, allocator)
 }
 
 @(private)
 _free_result :: proc(r: [][][2]f64) {
     for c in r do delete(c)
     delete(r)
+}
+
+@(private)
+_is_concave :: #force_inline proc(p, prev, next: [2]f64) -> bool {
+    return linalg.cross(p - prev, next - p) < 0
 }
 
 // offset_polygon offsets all edges of a polygon by a uniform delta.
@@ -70,11 +119,18 @@ offset_polygon :: #force_inline proc(polygon: [][2]f64, delta: f64, allocator :=
 // If len(deltas) < len(polygon), the last delta is reused for remaining edges.
 // Negative delta shrinks, positive delta expands.
 // Returns cleaned contours via winding number classification.
-offset_polygon_edges ::#force_inline proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][][2]f64 {
+offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, allocator := context.allocator) -> [][][2]f64 {
     if len(polygon) < 3 do return {}
-    curve := _make_offset_curve(polygon, deltas)
-    defer delete(curve)
-    return _boolean({curve}, .Positive, allocator)
+
+    cleaned := tesselate_contours({polygon}, .Positive, context.temp_allocator)
+    if len(cleaned) == 0 do return {}
+
+    raw := make([][]([2]f64), len(cleaned), context.temp_allocator)
+    for i in 0..<len(cleaned) {
+        raw[i] = _make_raw_offset_curve(cleaned[i], deltas, context.temp_allocator)
+    }
+
+    return _boolean(raw, .Positive, allocator)
 }
 
 offset :: proc {offset_polygon, offset_polygon_edges}
