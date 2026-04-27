@@ -72,6 +72,7 @@ make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_
         max_arc_segs := _arc_sample_count(max_delta, math.PI, arc_resolution)
         buf = make([][2]f64, C * (max_arc_segs + 2), allocator)
     }
+    defer delete(buf)
 
     // up to 3 points per vertex: end of incoming edge, original vertex, start of outgoing edge
     count := 0
@@ -192,7 +193,10 @@ make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_
 
     if _is_fully_inverted(polygon, buf[:count]) do return {}
 
-    return buf[:count]
+    result := make([][2]f64, count)
+    copy(result, buf[:count])
+
+    return result
 }
 
 offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_Type, arc_resolution: f64, miter_limit: f64, allocator := context.allocator) -> [][][2]f64 {
