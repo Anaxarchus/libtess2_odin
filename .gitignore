@@ -1,2 +1,4 @@
 bin/
 .DS_Store
+source/build
+source/libtess2
