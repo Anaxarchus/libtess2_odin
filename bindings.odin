@@ -3,9 +3,13 @@ package libtess2
 import "core:fmt"
 
 when ODIN_OS == .Windows {
-    foreign import lib "bin/libtess2.lib"
+    foreign import lib "bin/windows/liblibtess2.lib"
+} else when ODIN_OS == .JS || ODIN_OS == .Freestanding {
+    foreign import lib "bin/wasm32/liblibtess2.a"
+} else when ODIN_OS == .Darwin {
+    foreign import lib "bin/macos/liblibtess2.a"
 } else {
-    foreign import lib "bin/libtess2.a"
+    foreign import lib "bin/linux/liblibtess2.a"
 }
 
 UNDEF :: i32(~u32(0))

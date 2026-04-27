@@ -5,7 +5,6 @@ package libtess2
 import "core:slice"
 import "core:math"
 import "core:math/linalg"
-import "core:fmt"
 
 
 Join_Type :: enum {

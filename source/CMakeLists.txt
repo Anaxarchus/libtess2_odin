@@ -16,7 +16,7 @@ set(SRC ${CMAKE_SOURCE_DIR}/libtess2/Source)
 set(INC ${CMAKE_SOURCE_DIR}/libtess2/Include)
 
 if(EMSCRIPTEN)
-    set(PLATFORM_DIR "emscripten")
+    set(PLATFORM_DIR "wasm32")
 elseif(CMAKE_C_COMPILER_TARGET STREQUAL "wasm32")
     set(PLATFORM_DIR "wasm32")
 elseif(WIN32)
