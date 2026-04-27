@@ -191,8 +191,6 @@ make_raw_offset_curve :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_
         }
     }
 
-    if _is_fully_inverted(polygon, buf[:count]) do return {}
-
     result := make([][2]f64, count)
     copy(result, buf[:count])
 
@@ -216,11 +214,26 @@ offset_polygon_edges :: proc(polygon: [][2]f64, deltas: []f64, join_type: Join_T
         raw[i] = make_raw_offset_curve(cleaned[i], deltas, join_type, arc_resolution, miter_limit, allocator)
     }
 
+    // fix: large offsets cause the tesselator to sum incorrectly
+    // switching from .Positive to .Negative when cw_area is greater than ccw_area seems to resolve this.
+    cw_area: f64
+    ccw_area: f64
+    for i in 0..<len(raw) {
+        sa := _signed_area(raw[i])
+        if sa < 0 {
+            cw_area += abs(sa)
+        } else {
+            ccw_area += sa
+        }
+    }
+
     ctx, okay = begin(2, false)
     for i in 0..<len(raw) {
         okay = add(ctx, raw[i])
     }
-        result := tesselate_boundary_contours(&ctx, .Positive, allocator)
+        wr: Winding_Rule = .Positive
+        if cw_area > ccw_area do wr = .Negative
+        result := tesselate_boundary_contours(&ctx, wr, allocator)
     end(ctx)
 
     return result
