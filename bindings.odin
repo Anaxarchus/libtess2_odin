@@ -12,7 +12,7 @@ when ODIN_OS == .Windows {
     foreign import lib "bin/linux/liblibtess2.a"
 }
 
-UNDEF :: i32(~u32(0))
+UNDEF :: i32(-1)
 
 Tesselator :: struct{}
 
